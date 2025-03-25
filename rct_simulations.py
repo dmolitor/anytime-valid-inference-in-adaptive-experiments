@@ -322,7 +322,7 @@ n_df = pd.concat([mad_covar_n, mad_n, rct_n], axis=0)
     dpi=300
 )
 
-## Simulation: MADMod vs RCT with more balanced adaptivity --------------------------
+## Simulation: MAD vs RCT with more balanced adaptivity -----------------------
 
 mad = MAD(
     bandit=UCB(
@@ -449,6 +449,150 @@ mad_n = (
 )
 rct_n = pa_rct_results[["label", "label_clean", "n", "which"]]
 n_df = pd.concat([mad_covar_n, mad_n, rct_n], axis=0)
+(
+    pn.ggplot(n_df, pn.aes(x="reorder(label_clean, -n)", y="n", fill="which"))
+    + pn.geom_bar(stat="identity", position=pn.position_dodge())
+    + pn.coord_flip()
+    + pn.theme_538()
+    + pn.labs(x="", y="N", title="Outcome: Partisan animosity", fill="")
+).save(
+    base_dir / "figures" / "sim_n_comparison_low_adapt.png",
+    width=8,
+    height=8,
+    dpi=300
+)
+
+## Simulation: MADMod vs MAD vs RCT -------------------------------------------
+
+mad_covar_adj = MAD(
+    bandit=UCB(
+        k=len(interventions),
+        control=0,
+        reward=reward_fn_covar,
+        optimize="min"
+    ),
+    alpha=0.05,
+    delta=lambda x: 1./(x**0.05),
+    t_star=int(32e3),
+    model=OLSModel,
+    pooled=True,
+    n_warmup=100
+)
+mad_covar_adj.fit(verbose=True, mc_adjust=None)
+
+mad_mod = MADModified(
+    bandit=UCB(
+        k=len(interventions),
+        control=0,
+        reward=reward_fn_covar,
+        optimize="min"
+    ),
+    alpha=0.05,
+    delta=lambda x: 1./(x**0.05),
+    t_star=int(32e3),
+    decay=lambda x: 1./(x**(1./8.)),
+    model=OLSModel,
+    pooled=True,
+    n_warmup=100
+)
+mad_mod.fit(verbose=True, mc_adjust=None)
+
+# Plot results
+pa_results_covar = (
+    pd
+    .merge(
+        mad_covar_adj.estimates(),
+        pd.merge(
+            pd.DataFrame(interventions.items(), columns=["arm", "label"]),
+            intervention_labels,
+            on="label",
+            how="left"
+        ),
+        on="arm",
+        how="left"
+    )
+    .assign(which="MADCovar")
+)
+pa_results_mad_mod = (
+    pd
+    .merge(
+        mad_mod.estimates(),
+        pd.merge(
+            pd.DataFrame(interventions.items(), columns=["arm", "label"]),
+            intervention_labels,
+            on="label",
+            how="left"
+        ),
+        on="arm",
+        how="left"
+    )
+    .assign(which="MADMod")
+)
+ate_comparison_df = pd.concat(
+    [
+        pa_rct_results[pa_rct_results["label"] != "Null_Control"],
+        pa_results_covar,
+        pa_results_mad_mod
+    ],
+    axis=0
+)
+# Plot ATE comparison
+(
+    pn.ggplot(
+        ate_comparison_df,
+        pn.aes(
+            x="reorder(label_clean, -ate)",
+            y="ate",
+            ymin="lb",
+            ymax="ub",
+            color="which"
+        )
+    )
+    + pn.geom_point(position=pn.position_dodge(width=0.5))
+    + pn.geom_linerange(position=pn.position_dodge(width=0.5))
+    + pn.geom_hline(yintercept=0, linetype="dashed", color="black")
+    + pn.coord_flip()
+    + pn.labs(x="", y="ATE", title="Outcome: Partisan animosity", color="")
+    + pn.theme_538()
+).save(
+    base_dir / "figures" / "sim_ate_comparison_low_adapt.png",
+    width=8,
+    height=8,
+    dpi=300
+)
+# Plot N comparison
+mad_covar_n = (
+    pd
+    .DataFrame(
+        {
+            k: last(mad_covar_adj._n[k])
+            for k in range(mad_covar_adj._bandit.k())
+        }.items(),
+        columns=["arm", "n"]
+    )
+    .assign(
+        label=lambda x: x["arm"].apply(lambda y: interventions[y])
+    )
+    .assign(which="MADCovar")
+    .merge(intervention_labels, on="label", how="left")
+)
+mad_mod_n = (
+    pd
+    .DataFrame(
+        {
+            k: last(mad_mod._n[k])
+            for k in range(mad_mod._bandit.k())
+        }.items(),
+        columns=["arm", "n"]
+    )
+    .assign(
+        label=lambda x: x["arm"].apply(lambda y: interventions[y])
+    )
+    .assign(which="MADMod")
+    .merge(intervention_labels, on="label", how="left")
+)
+rct_n = pa_rct_results[["label", "label_clean", "n", "which"]]
+n_df = pd.concat([mad_covar_n, mad_mod_n, rct_n], axis=0)
 (
     pn.ggplot(n_df, pn.aes(x="reorder(label_clean, -n)", y="n", fill="which"))
     + pn.geom_bar(stat="identity", position=pn.position_dodge())
