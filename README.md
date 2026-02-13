@@ -17,3 +17,5 @@ All figures and tables (there's only one table) will be output in the `./figures
 uv run simulation_results.py
 uv run rct_results.py
 ```
+
+This will likely take a while.
