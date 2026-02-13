@@ -41,11 +41,8 @@ class MADBase:
         self._delta = delta
         self._eliminated = {k: False for k in range(bandit.k())}
         self._is_stat_sig = {k: False for k in range(bandit.k())}
-        # self._ite = {
-        #     "control": np.empty(0, dtype=[("ite", "f8"), ("ite_var", "f8"), ("arm", "O")]),
-        #     "treat": np.empty(0, dtype=[("ite", "f8"), ("ite_var", "f8"), ("arm", "O")])
-        # }
         self._ite = {"control": [], "treat": []}
+        self._ite_var = {"control": [], "treat": []}
         self._model = model
         self._n = []
         self._n_warmup = n_warmup
@@ -60,6 +57,10 @@ class MADBase:
             self._cs_radius.append([])
             self._cs_width.append(0)
             self._cs_width_benchmark.append(0)
+            self._ite["control"].append([])
+            self._ite["treat"].append([])
+            self._ite_var["control"].append([])
+            self._ite_var["treat"].append([])
             self._n.append([0])
             self._stat_sig_counter.append(0)
     
@@ -75,16 +76,12 @@ class MADBase:
         n_treatments = self._bandit.k() - 1
         # Get all the ITEs and their variance estimates for the current arm
         # as well as the control arm
-        control_ites = np.array(self._ite["control"], dtype=[("ite", "f8"), ("ite_var", "f8"), ("arm", "O")])
-        treat_ites = np.array(self._ite["treat"], dtype=[("ite", "f8"), ("ite_var", "f8"), ("arm", "O")])
-        ites = np.append(
-            control_ites[control_ites["arm"] == arm]["ite"],
-            treat_ites[treat_ites["arm"] == arm]["ite"]
-        )
-        vars = np.append(
-            control_ites[control_ites["arm"] == arm]["ite_var"],
-            treat_ites[treat_ites["arm"] == arm]["ite_var"]
-        )
+        control_ites = self._ite["control"][arm]
+        control_vars = self._ite_var["control"][arm]
+        treat_ites = self._ite["treat"][arm]
+        treat_vars = self._ite_var["treat"][arm]
+        ites = np.append(control_ites, treat_ites)
+        vars = np.append(control_vars, treat_vars)
         assert len(ites) == len(vars), "Mismatch in dimensions of ITEs and Variances"
         # If there aren't enough ITEs to calculate the ATE just mark the ATE
         # as missing (np.nan) and mark the CS as infinite
@@ -104,13 +101,20 @@ class MADBase:
                 mc_adjust=mc_adjust,
                 n_arms=n_treatments
             )
+            alt_conf_seq_radius = cs_radius(
+                var=vars,
+                t=self._bandit._t,
+                t_star=self._t_star,
+                alpha=self._alpha,
+                mc_adjust=mc_adjust,
+                n_arms=n_treatments
+            )
         return avg_treat_effect, conf_seq_radius
     
     def _compute_ite(self, selected_arm: Any, outcome: float, propensity: float) -> float:
         """
         Unbiased individual treatment effect estimator
         """
-        estimates = []
         control_ite = -outcome/propensity
         treat_ite = outcome/propensity
         var = (outcome**2)/(propensity**2)
@@ -118,19 +122,18 @@ class MADBase:
             if selected_arm == self._bandit.control():
                 ite = control_ite
                 ite_var = var
+                self._ite["control"][arm].append(ite)
+                self._ite_var["control"][arm].append(ite_var)
             elif selected_arm == arm:
                 ite = treat_ite
                 ite_var = var
+                self._ite["treat"][arm].append(ite)
+                self._ite_var["treat"][arm].append(ite_var)
             else:
                 ite = 0.0
                 ite_var = 0.0
-            # Append to array
-            estimates.append((ite, ite_var, arm))
-        # estimates = np.array(
-        #     estimates,
-        #     dtype = [("ite", "f8"), ("ite_var", "f8"), ("arm", "O")]
-        # )
-        return estimates
+                self._ite["treat"][arm].append(ite)
+                self._ite_var["treat"][arm].append(ite_var)
     
     def _compute_ite_pooled(
         self,
@@ -142,9 +145,7 @@ class MADBase:
         n_warmup: int
     ) -> float:
         """
-        Unbiased individual treatment effect estimator:
-        
-        TODO: replace the modeling stuff below to accept a user-provided fitting function
+        Unbiased individual treatment effect estimator
         """
         X = self._covariates
         y = np.array(self._rewards)
@@ -165,7 +166,6 @@ class MADBase:
             arm=control_arm
         )
         pred_control = model.predict(covar_control)[0]
-        estimates = []
         for arm in self._bandit._active_arms:
             covar_treat = prep_dummies(
                 covariates,
@@ -180,19 +180,18 @@ class MADBase:
             if selected_arm == control_arm:
                 ite = pred_ite - ((outcome - pred_control)/propensity)
                 ite_var = ((outcome - pred_control)**2)/(propensity**2)
+                self._ite["control"][arm].append(ite)
+                self._ite_var["control"][arm].append(ite_var)
             elif selected_arm == arm:
                 ite = pred_ite + ((outcome - pred_treat)/propensity)
                 ite_var = ((outcome - pred_treat)**2)/(propensity**2)
+                self._ite["treat"][arm].append(ite)
+                self._ite_var["treat"][arm].append(ite_var)
             else:
                 ite = pred_ite
                 ite_var = 0.0
-            # Append to array
-            estimates.append((ite, ite_var, arm))
-        # estimates = np.array(
-        #     estimates,
-        #     dtype = [("ite", "f8"), ("ite_var", "f8"), ("arm", "O")]
-        # )
-        return estimates
+                self._ite["treat"][arm].append(ite)
+                self._ite_var["treat"][arm].append(ite_var)
 
     def _compute_ite_split(
         self,
@@ -239,18 +238,19 @@ class MADBase:
             if selected_arm == control_arm:
                 ite = pred_ite - ((outcome - pred_control) / propensity)
                 ite_var = ((outcome - pred_control) ** 2) / (propensity ** 2)
+                self._ite["control"][arm].append(ite)
+                self._ite_var["control"][arm].append(ite_var)
             elif selected_arm == arm:
                 ite = pred_ite + ((outcome - pred_treat) / propensity)
                 ite_var = ((outcome - pred_treat) ** 2) / (propensity ** 2)
+                self._ite["treat"][arm].append(ite)
+                self._ite_var["treat"][arm].append(ite_var)
             else:
                 ite = pred_ite
                 ite_var = 0.0
+                self._ite["treat"][arm].append(ite)
+                self._ite_var["treat"][arm].append(ite_var)
             estimates.append((ite, ite_var, arm))
-        # estimates = np.array(
-        #     estimates,
-        #     dtype=[("ite", "f8"), ("ite_var", "f8"), ("arm", "O")]
-        # )
-        return estimates
     
     def estimates(self) -> pd.DataFrame:
         """
@@ -385,10 +385,10 @@ class MADBase:
         """
         ites = pd.concat([
             pd.DataFrame({
-                "ITE": self._ite["control"][self._ite["control"]["arm"] == arm]["ite"]
+                "ITE": self._ite["control"][arm]
             }).assign(Group="Control"),
             pd.DataFrame({
-                "ITE": self._ite["treat"][self._ite["treat"]["arm"] == arm]["ite"]
+                "ITE": self._ite["treat"][arm]
             }).assign(Group="Treatment")
         ])
         if type.lower() == "boxplot":
@@ -615,7 +615,7 @@ class MAD(MADBase):
             # Calculate the individual treatment effect estimate (ITE) and its
             # variance upper bound. This is effectively just (reward / propensity).
             # See `utils.ite()` for exactly what it's doing.
-            ite_est = self._compute_ite(
+            self._compute_ite(
                 selected_arm=selected_arm,
                 outcome=reward,
                 propensity=propensity
@@ -628,7 +628,7 @@ class MAD(MADBase):
             reward = reward.outcome
             # Estimate AIPW with pooled estimator
             if self._pooled:
-                ite_est = self._compute_ite_pooled(
+                self._compute_ite_pooled(
                     outcome=reward,
                     covariates=covariates,
                     selected_arm=selected_arm,
@@ -638,7 +638,7 @@ class MAD(MADBase):
                 )
             # Estimate AIPW with separate models per treatment arm
             else:
-                ite_est = self._compute_ite_split(
+                self._compute_ite_split(
                     outcome=reward,
                     covariates=covariates,
                     selected_arm=selected_arm,
@@ -654,13 +654,6 @@ class MAD(MADBase):
                 .concat([self._covariates, covariates], axis=0)
                 .reset_index(drop=True)
             )
-        # Record the ITE and its variance for calculating the ATE later
-        if selected_arm == control:
-            # self._ite["control"] = np.append(self._ite["control"], ite_est)
-            self._ite["control"].extend(ite_est)
-        else:
-            # self._ite["treat"] = np.append(self._ite["treat"], ite_est)
-            self._ite["treat"].extend(ite_est)
         # Now, for each arm, calculate its ATE and corresponding Confidence Sequence (CS)
         # value for the current time step t.
         for arm in arm_probs.keys():
@@ -815,7 +808,7 @@ class MADModified(MADBase):
         reward: Reward = self._bandit.reward(selected_arm)
         if reward.covariates is None:
             reward = reward.outcome
-            ite_est = self._compute_ite(
+            self._compute_ite(
                 selected_arm=selected_arm,
                 outcome=reward,
                 propensity=propensity
@@ -825,7 +818,7 @@ class MADModified(MADBase):
             covariates = reward.covariates
             reward = reward.outcome
             if self._pooled:
-                ite_est = self._compute_ite_pooled(
+                self._compute_ite_pooled(
                     outcome=reward,
                     covariates=covariates,
                     selected_arm=selected_arm,
@@ -834,7 +827,7 @@ class MADModified(MADBase):
                     n_warmup=self._n_warmup
                 )
             else:
-                ite_est = self._compute_ite_split(
+                self._compute_ite_split(
                     outcome=reward,
                     covariates=covariates,
                     selected_arm=selected_arm,
@@ -849,12 +842,6 @@ class MADModified(MADBase):
                 .concat([self._covariates, covariates], axis=0)
                 .reset_index(drop=True)
             )
-        if selected_arm == control:
-            # self._ite["control"] = np.append(self._ite["control"], ite_est)
-            self._ite["control"].extend(ite_est)
-        else:
-            # self._ite["treat"] = np.append(self._ite["treat"], ite_est)
-            self._ite["treat"].extend(ite_est)
         for arm in arm_probs.keys():
             # Calculate the ATE and corresponding CS for the current arm
             avg_treat_effect, conf_seq_radius = self._compute_ate(

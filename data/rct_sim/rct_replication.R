@@ -13,13 +13,13 @@
 
 
 # Setup -------------------------------------------------------------------
-options(scipen = 999)
 
+library(broom)
+library(ggplot2)
 library(here)
-library(tidyverse)
-library(tidymodels)
-library(sandwich)
-library(lmtest)
+library(readr)
+library(stringr)
+library(dplyr)
 
 wd <- here()
 data_fp <- here(wd, "data/rct_sim/SDC - Data - Recoded.csv")
@@ -57,7 +57,7 @@ plots <- lapply(outcomes |> pull(Outcome_Name_Data), function(out_var){
   )
   
   # tidying results 
-  results_weighted <- broom::tidy(model_weighted, conf.int = TRUE) |> 
+  results_weighted <- tidy(model_weighted, conf.int = TRUE) |> 
     slice(-1) |> # removing Intercept term
     filter(str_detect(term, "Condition")) |> 
     mutate(term = str_remove(term, "Condition")) |> 
@@ -66,7 +66,7 @@ plots <- lapply(outcomes |> pull(Outcome_Name_Data), function(out_var){
     inner_join(read_csv(treat_labels_fp), by = c("term" = "Intervention_Name_Data")) |>
     mutate(type = "weighted")
 
-  results_unweighted <- broom::tidy(model_unweighted, conf.int = TRUE) |> 
+  results_unweighted <- tidy(model_unweighted, conf.int = TRUE) |> 
     slice(-1) |> # removing Intercept term
     filter(str_detect(term, "Condition")) |> 
     mutate(term = str_remove(term, "Condition")) |> 
@@ -84,7 +84,6 @@ plots <- lapply(outcomes |> pull(Outcome_Name_Data), function(out_var){
     aes(
       x = estimate,
       y = reorder(Intervention_Name_Manuscript, desc(estimate)),
-      # color = type
     )
   ) + 
     geom_point(position = position_dodge(width = 0.3)) + 

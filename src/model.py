@@ -33,6 +33,21 @@ class Model(ABC):
         predictions as a numpy array.
         """
 
+class FastOLSModel(Model):
+    def __init__(self, X: pd.DataFrame | npt.NDArray | Any, y: npt.NDArray):
+        self._fitted = None
+        self._X = X
+        self._y = y
+
+    def fit(self):
+        self._fitted, _, _, _ = np.linalg.lstsq(self._X, self._y)
+        return self
+
+    def predict(self, X: pd.DataFrame | npt.NDArray):
+        assert self._fitted is not None, "Attempting to predict before fitting a model"
+        predictions = np.dot(X, self._fitted)
+        return predictions
+
 class LassoModel(Model):
     def __init__(self, X: pd.DataFrame | npt.NDArray | Any, y: npt.NDArray):
         self._fitted = None

@@ -1,19 +1,19 @@
-# Robust Adaptive Experiments
+# Anytime-Valid Inference in Adaptive Experiments: Covariate Adjustment and Balanced Power
 
-This project aims to develop methods for designing adaptive experiments that ensure valid treatment effect inference while maintaining sufficient power to detect effects across all treatment arms, including suboptimal ones.
+This repository replicates figures/tables for [Anytime-Valid Inference in Adaptive Experiments: Covariate Adjustment and Balanced Power](https://arxiv.org/abs/2506.20523) (Molitor and Gold, 2025).
 
-## Replications
+## Install dependencies
 
-Below are instructions for replicating tables/figures for various conference
-or journal submissions. To install necessary dependencies:
+First, ensure [uv is installed](https://docs.astral.sh/uv/getting-started/installation/).
+Then, install required dependencies:
 ```
-pip install -r requirements.txt
-```
-
-### $\textbf{IC}^2\textbf{S}^2$ 2025
-
-To replicate the figures for $\text{IC}^2\text{S}^2$ 2025:
-```
-python ic2s2_simulations.py
+uv sync
 ```
 
+## Replicate figures/tables
+
+All figures and tables (there's only one table) will be output in the `./figures` directory. To replicate:
+```
+uv run simulation_results.py
+uv run rct_results.py
+```

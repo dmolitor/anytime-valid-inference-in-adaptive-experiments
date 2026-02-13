@@ -1,0 +1,6 @@
+# Ignore everything
+*
+
+# Except the gitignore file and the rct_sim directory
+!.gitignore
+!./rct_sim/*
