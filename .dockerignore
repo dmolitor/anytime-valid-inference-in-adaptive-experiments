@@ -1,0 +1,7 @@
+figures/*
+.dockerignore
+Dockerfile
+**/.DS_Store
+!figures/.gitignore
+.git
+.gitattributes

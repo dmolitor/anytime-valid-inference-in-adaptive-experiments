@@ -1,5 +1,9 @@
 # Anytime-Valid Inference in Adaptive Experiments: Covariate Adjustment and Balanced Power
 
+<!-- badges: start -->
+[![Launch RStudio Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/dmolitor/anytime-valid-inference-in-adaptive-experiments/main?urlpath=rstudio)
+<!-- badges: end -->
+
 This repository replicates figures/tables for [Anytime-Valid Inference in Adaptive Experiments: Covariate Adjustment and Balanced Power](https://arxiv.org/abs/2506.20523) (Molitor and Gold, 2025).
 
 ## Install dependencies
