@@ -1,7 +1,11 @@
-figures/*
-.dockerignore
+.binder/
 Dockerfile
+.env
+.github/
+.git/
 **/.DS_Store
-!figures/.gitignore
-.git
+.venv/
 .gitattributes
+.dockerignore
+figures/*
+!figures/.gitignore

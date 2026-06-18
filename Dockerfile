@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.11-bookworm
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY . /anytime-valid-inference-in-adaptive-experiments
 WORKDIR /anytime-valid-inference-in-adaptive-experiments
