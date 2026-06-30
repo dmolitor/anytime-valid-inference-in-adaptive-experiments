@@ -3,7 +3,7 @@ name = "robust-adaptive-experiments"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "joblib>=1.5.3",
     "lxml>=6.0.2",
@@ -16,8 +16,5 @@ dependencies = [
     "scipy==1.15.1",
     "statsmodels==0.14.4",
     "tqdm==4.67.1",
-    "tugboat",
+    "tugboat-cli>=0.1.0",
 ]
-
-[tool.uv.sources]
-tugboat = { git = "https://github.com/dmolitor/tugboat-py" }

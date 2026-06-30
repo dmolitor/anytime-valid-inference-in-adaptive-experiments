@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
-from tugboat import binderize, build, create
+from tugboat_cli import binderize, build, create
 import os
 
 load_dotenv()
 
 create(
     project=".",
-    FROM="python:3.11-bookworm",
+    FROM="python:3.12-bookworm",
     exclude=[
         ".binder/",
         ".venv/",
@@ -16,7 +16,8 @@ create(
         ".gitattributes",
         ".github/",
         ".env"
-    ]
+    ],
+    detect_r=False
 )
 
 dock = build(
@@ -26,4 +27,4 @@ dock = build(
     dh_password=os.getenv("DOCKERHUB_PASSWORD")
 )
 
-binderize()
+binderize(detect_r=False)
